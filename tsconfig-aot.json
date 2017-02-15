@@ -12,11 +12,6 @@
     "outDir": ".tmp"
   },
 
-  "files": [
-    "app/app.module.ts",
-    "app/main-aot.ts"
-  ],
-
   "angularCompilerOptions": {
     "genDir": "aot",
     "skipMetadataEmit" : true

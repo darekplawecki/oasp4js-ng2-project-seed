@@ -1,15 +1,17 @@
-import {Component, OnInit, ViewChild} from '@angular/core';
-import {BookService, Book} from '../book.service';
-import {ActivatedRoute, Params, Router} from '@angular/router';
-import {NgForm, AbstractControl} from '@angular/forms';
-import * as template from './book-details.component.html!text';
-import * as style from './book-details.component.css!text';
-import {asString} from '../../general/util/as-string';
+import {Component, OnInit, ViewChild} from "@angular/core";
+import {BookService, Book} from "../book.service";
+import {ActivatedRoute, Params, Router} from "@angular/router";
+import {NgForm, AbstractControl} from "@angular/forms";
+// import * as template from "./book-details.component.html!text";
+// import * as style from "./book-details.component.css!text";
+// import {asString} from "../../general/util/as-string";
 
 @Component({
   selector: 'book-details',
-  template: asString(template),
-  styles: [asString(style)]
+  // template: asString(template),
+  // styles: [asString(style)]
+  templateUrl: './book-details.component.html',
+  styleUrls: ['./book-details.component.less']
 })
 export class BookDetailsComponent implements OnInit {
   @ViewChild('bookForm') currentForm: NgForm;

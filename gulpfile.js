@@ -28,6 +28,11 @@ var
   remapIstanbul = require('remap-istanbul/lib/gulpRemapIstanbul'),
   ngc = require('gulp-ngc'),
   karmaParseConfig = require('karma/lib/config').parseConfig,
+  inlineNg2Template = require('gulp-inline-ng2-template'),
+  replace = require('gulp-replace'),
+  rollup = require('rollup-stream'),
+  source = require('vinyl-source-stream'),
+
 
   htmlMin = require('gulp-htmlmin'),
   htmlMinConfig = {
@@ -435,6 +440,16 @@ gulp.task('serve:dist', ['build:dist'], function () {
   browserSync.init(browserSyncConfigFactory());
 });
 
+gulp.task('build:dist:aot', gulpSync.sync([
+    ['set-prod-config'],
+    ['aot-compile-and-rollup', 'compile-main-less-and-copy-it', 'compile-main-sass-and-copy-it', 'copy-bootstrap-fonts', 'copy-favicon-icon', 'copy-images', 'copy-fonts'],
+    ['process-main-html-and-copy-it'],
+    ['minify-main-html-in-dist']]));
+
+gulp.task('serve:dist:aot', ['build:dist:aot'], function () {
+    browserSync.init(browserSyncConfigFactory());
+});
+
 gulp.task('clean', function () {
   return gulp.src([config.tmpDir, config.distDir, config.testOutputDir, 'app/**/*.js', 'app/**/*.js.map', 'aot'], {read: false})
     .pipe(clean({force: true}));
@@ -512,6 +527,23 @@ gulp.task('lint', function () {
 
 gulp.task('ngc', ['clean'], function () {
   return ngc('tsconfig-aot.json');
+});
+
+gulp.task('inline-templates', ['ngc', 'copy-templates', 'copy-env-file', 'compile-component-less-styles-and-copy-them', 'compile-component-sass-styles-and-copy-them'], function () {
+    return gulp.src('.tmp/app/**/*.js', {base: '.tmp/app'})
+        .pipe(replace(/\.(less|sass)/g, '.css'))
+        .pipe(inlineNg2Template({
+            target: 'es5',
+            useRelativePaths: true,
+            removeLineBreaks: true
+        }))
+        .pipe(gulp.dest('.tmp/app'));
+});
+
+gulp.task('aot-compile-and-rollup', ['inline-templates'], function () {
+  return rollup('rollup-config.js')
+    .pipe(source('main.js'))
+    .pipe(gulp.dest('./dist'));
 });
 
 gulp.task('default', gulpSync.sync(['clean', 'serve']));
