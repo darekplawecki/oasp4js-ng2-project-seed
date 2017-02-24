@@ -115,7 +115,7 @@ var
         routes: routes || null,
         middleware: [
           redirectRestServiceCallsToBackendServer(),
-          historyApiFallback() // to return index.html while refreshing or bookmarking (HTML5 navigation)
+          historyApiFallback({index: `/${config.mainHtmlPath()}`}) // to return index.html or index-aot.html while refreshing or bookmarking (HTML5 navigation)
         ]
       }
     };
@@ -147,6 +147,7 @@ var
     var
       externalConfig = require('./oasp4js.config.json'),
       devMode = true,
+      aotMode = false,
       appDir = (externalConfig.paths && externalConfig.paths.src) || 'app',
       devDir = (externalConfig.paths && externalConfig.paths.tmp) || '.tmp',
       prodDir = (externalConfig.paths && externalConfig.paths.dist) || 'dist',
@@ -168,6 +169,12 @@ var
       isProd: function () {
         return !devMode;
       },
+      setForProdAot: function () {
+        aotMode = true;
+      },
+      isAot: function () {
+        return !aotMode;
+      },
       tmpDir: devDir,
       srcDir: appDir,
       distDir: prodDir,
@@ -184,7 +191,9 @@ var
       },
       mainLessPath: mainLessPath,
       mainSassPath: mainSassPath,
-      mainHtmlPath: 'index.html',
+      mainHtmlPath: function(){
+        return aotMode ? 'index-aot.html' : 'index.html'
+      },
       tsSources: appDir + '/**/*.ts',
       tsSources4Test: devDir + '/' + appDir + '/**/*.ts',
       templateSources: appDir + '/**/*.html',
@@ -290,7 +299,7 @@ gulp.task('compile-component-sass-styles-and-copy-them', function () {
 });
 
 gulp.task('process-main-html-and-copy-it', function () {
-  return gulp.src(config.mainHtmlPath)
+  return gulp.src(config.mainHtmlPath())
     .pipe(processHtml({
       commentMarker: 'process', // use <!-- process:... --> comment markers to not conflict with usemin ones: <!-- build:css ... -->
       environment: config.isProd() ? 'prod' : 'dev',
@@ -370,7 +379,7 @@ gulp.task('serve', ['build'], function () {
   gulp.watch([config.sassComponentSources], ['reload-browser-after-compiling-component-sass-styles']);
   gulp.watch([config.lessSourcesExceptComponentOnes], ['compile-main-less-and-copy-it']);
   gulp.watch([config.sassSourcesExceptComponentOnes], ['compile-main-sass-and-copy-it']);
-  gulp.watch([config.mainHtmlPath], ['reload-browser-after-processing-main-html']);
+  gulp.watch([config.mainHtmlPath()], ['reload-browser-after-processing-main-html']);
   gulp.watch([config.imageSources], ['reload-browser-after-copying-images']);
   gulp.watch([config.fontSources], ['reload-browser-after-copying-fonts']);
 });
@@ -379,8 +388,12 @@ gulp.task('set-prod-config', function () {
   config.setForProd();
 });
 
+gulp.task('set-aot-config', function () {
+  config.setForProdAot();
+});
+
 gulp.task('minify-main-html-in-dist', function () {
-  return gulp.src(config.distDir + '/' + config.mainHtmlPath)
+  return gulp.src(config.distDir + '/' + config.mainHtmlPath())
     .pipe(htmlMin(htmlMinConfig))
     .pipe(gulp.dest(config.distDir));
 });
@@ -437,17 +450,18 @@ gulp.task('build:dist', gulpSync.sync([
   ['minify-main-html-in-dist']]));
 
 gulp.task('serve:dist', ['build:dist'], function () {
-  browserSync.init(browserSyncConfigFactory());
+  browserSync.init(browserSyncConfigFactory({"/node_modules": "node_modules"}));
 });
 
 gulp.task('build:dist:aot', gulpSync.sync([
     ['set-prod-config'],
+    ['set-aot-config'],
     ['aot-compile-and-rollup', 'compile-main-less-and-copy-it', 'compile-main-sass-and-copy-it', 'copy-bootstrap-fonts', 'copy-favicon-icon', 'copy-images', 'copy-fonts'],
     ['process-main-html-and-copy-it'],
     ['minify-main-html-in-dist']]));
 
 gulp.task('serve:dist:aot', ['build:dist:aot'], function () {
-    browserSync.init(browserSyncConfigFactory());
+    browserSync.init(browserSyncConfigFactory({"/node_modules": "node_modules"}));
 });
 
 gulp.task('clean', function () {
@@ -529,7 +543,7 @@ gulp.task('ngc', ['clean'], function () {
   return ngc('tsconfig-aot.json');
 });
 
-gulp.task('inline-templates', ['ngc', 'copy-templates', 'copy-env-file', 'compile-component-less-styles-and-copy-them', 'compile-component-sass-styles-and-copy-them'], function () {
+gulp.task('inline-templates', gulpSync.sync(['ngc', 'copy-templates', 'copy-env-file', 'compile-component-less-styles-and-copy-them', 'compile-component-sass-styles-and-copy-them']), function () {
     return gulp.src('.tmp/app/**/*.js', {base: '.tmp/app'})
         .pipe(replace(/\.(less|sass)/g, '.css'))
         .pipe(inlineNg2Template({
